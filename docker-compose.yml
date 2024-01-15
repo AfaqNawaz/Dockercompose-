@@ -1,0 +1,70 @@
+version: '3'
+
+services:
+  wordpress:
+    build: .
+    ports:
+      - "8081:80"
+    volumes:
+      -  wp_data:/var/www/html 
+    depends_on:
+      - db
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: exporter_user
+      WORDPRESS_DB_PASSWORD: exporter_password
+      WORDPRESS_DB_NAME: wordpress
+
+  db:
+    image: mysql:latest
+    command: --default-authentication-plugin=caching_sha2_password
+    ports:
+      - "3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: example
+      MYSQL_DATABASE: wordpress
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/config/prometheus.yaml'
+    volumes:  
+      - ./prometheus.yml:/config/prometheus.yaml
+      - prometheus_data:/prometheus
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana.ini:/etc/grafana/grafana.ini
+      - grafana_data:/var/lib/grafana    
+  mysqld_exporter:
+    image: prom/mysqld-exporter:latest
+    environment:
+      DATA_SOURCE_NAME: "root:example@(172.22.0.4:3306)/"  
+    ports:
+      - "9104:9104"
+    depends_on:
+      - db    
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor
+    ports:
+      - "8090:8080"
+    devices:
+      - "/dev/kmsg:/dev/kmsg"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    labels:
+      - "com.docker.compose.service=cadvisor"    
+volumes:
+ wp_data:
+ db_data:
+ grafana_data:
+ prometheus_data:
+ .my_cnf:
